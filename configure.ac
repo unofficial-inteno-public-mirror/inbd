@@ -8,6 +8,7 @@ AC_PROG_CC
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile])
 
+#        "-Wformat=2 -Wformat-security -Wformat-nonliteral" \
 CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -std=gnu11 \
 	-pipe \
@@ -15,7 +16,6 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Wextra \
         -Wno-inline \
         -Wundef \
-        "-Wformat=2 -Wformat-security -Wformat-nonliteral" \
         -Wlogical-op \
         -Wsign-compare \
         -Wmissing-include-dirs \
@@ -66,7 +66,7 @@ dnl chek ubus  , its manadatory
 AC_SEARCH_LIBS([ubus_connect], [ubus], [], [AC_MSG_ERROR([*** UBUS library not found])])
 
 # Check for libnl3
-PKG_CHECK_MODULES([LIBNL], [libnl-3.0])
+PKG_CHECK_MODULES([LIBNL], [libnl-3.0 libnl-genl-3.0])
 
 AC_OUTPUT
 

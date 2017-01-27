@@ -21,6 +21,7 @@ enum {
 	__INTENO_NL_MAX,
 };
 #define INTENO_NL_MAX (__INTENO_NL_MAX - 1)
+#define MAX_MSG 120
 
 static struct nla_policy inteno_nl_policy[__INTENO_NL_MAX] = {
         [INTENO_NL_MSG] = { .type = NLA_STRING },
@@ -33,6 +34,7 @@ static int inteno_nl_parser(struct nl_msg *msg, void *arg)
         struct nlmsghdr *nlh = nlmsg_hdr(msg);
         char *data;
         int ret;
+		char cmd[MAX_MSG];
 
         if (!genlmsg_valid_hdr(nlh, 0)){
                 printf("Got invalid message\n");
@@ -45,6 +47,8 @@ static int inteno_nl_parser(struct nl_msg *msg, void *arg)
 
                 if (attrs[INTENO_NL_MSG] ) {
                         printf("got message string (%s)\n", nla_get_string(attrs[INTENO_NL_MSG]) );
+						snprintf(cmd, MAX_MSG, "ubus send %s\n", nla_get_string(attrs[INTENO_NL_MSG]));
+						system(cmd);
                 }
         }
         return 0;

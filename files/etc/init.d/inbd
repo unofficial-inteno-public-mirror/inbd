@@ -15,7 +15,7 @@ PROG=/usr/bin/inbd
 start_service() {
 
 	procd_open_instance
-	procd_set_param command $PROG --app
+	procd_set_param command $PROG
 	procd_set_param respawn "5" "0" "3"
 	procd_close_instance
 }

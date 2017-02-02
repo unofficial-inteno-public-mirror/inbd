@@ -9,10 +9,13 @@
 
 #include <netlink/attr.h>
 
+#include <json-c/json.h>
+
 #include "config.h"
 
 #define INTENO_GENL_NAME "Inteno"
 #define INTENO_GENL_GRP "notify"
+#define SWITCH		"eth0"
 
 /* attributes */
 enum {
@@ -29,12 +32,118 @@ static struct nla_policy inteno_nl_policy[__INTENO_NL_MAX] = {
 
 static struct nlattr *attrs[__INTENO_NL_MAX];
 
+static void
+remove_char(char *buf, char ch)
+{
+	char newbuf[strlen(buf)+1];
+	int i = 0;
+	int j = 0;
+
+	while (buf[i]) {
+		newbuf[j] = buf[i];
+		if (buf[i] != ch)
+			j++;
+		i++;
+	}
+	newbuf[j] = '\0';
+	strcpy(buf, newbuf);
+}
+
+static void
+json_get_var(json_object *obj, char *var, char *value)
+{
+	json_object_object_foreach(obj, key, val) {
+		if(!strcmp(key, var)) {
+			switch (json_object_get_type(val)) {
+			case json_type_object:
+				break;
+			case json_type_array:
+				break;
+			case json_type_string:
+				sprintf(value, "%s", json_object_get_string(val));
+				break;
+			case json_type_boolean:
+				sprintf(value, "%d", json_object_get_boolean(val));
+				break;
+			case json_type_int:
+				sprintf(value, "%d", json_object_get_int(val));
+				break;
+			default:
+				break;
+			}
+		}
+	}
+}
+
+static void
+json_parse_and_get(char *str, char *var, char *value)
+{
+	json_object *obj;
+
+	obj = json_tokener_parse(str);
+	if (is_error(obj) || json_object_get_type(obj) != json_type_object) {
+		return;
+	}
+	json_get_var(obj, var, value);
+}
+
+
+static int process_netlink_message(char *msg)
+{
+	char event[32];
+	char data[128];
+	char state[16];
+	char port[16];
+	char link[16];
+	char cmd[MAX_MSG];
+
+	sscanf(msg, "%s %[^\n]s", event, data);
+
+	if (strcmp(event, "wifi.wps") == 0) {
+		remove_char(data, '\'');
+		json_parse_and_get(data, "state", state);
+		if(strcmp(state, "off") == 0)
+			system("ubus call led.wps set '{\"state\":\"off\"}'");
+		else if (strcmp(state, "in process") == 0)
+			system("ubus call led.wps set '{\"state\":\"notice\"}'");
+		else if (strcmp(state, "overlap") == 0)
+			system("ubus call led.wps set '{\"state\":\"alert\"}'");
+		else if (strcmp(state, "error") == 0)
+			system("ubus call led.wps set '{\"state\":\"alert\"}'");
+		else if (strcmp(state, "success") == 0)
+			system("ubus call led.wps set '{\"state\":\"ok\"}'");
+/*	} else if (strcmp(event, "wifi.credentials") == 0) {*/
+/*		snprintf(cmd, MAX_MSG, "wifi import %s", data);*/
+/*		system(cmd);*/
+	}
+	else if (strcmp(event, "switch") == 0) {
+		remove_char(data, '\'');
+		json_parse_and_get(data, "port", port);
+		json_parse_and_get(data, "link", link);
+
+		if(strcmp(link, "up") == 0)
+			strcpy(link, "add");
+		else if (strcmp(link, "down") == 0)
+			strcpy(link, "remove");
+
+		if(strcmp(port, "0") == 0)
+			strcpy(port, "2");
+		else if (strcmp(port, "1") == 0)
+			strcpy(port, "1");
+
+		snprintf(cmd, MAX_MSG, "ACTION=%s INTERFACE=%s.%s /sbin/hotplug-call net", link, SWITCH, port);
+		system(cmd);
+	}
+
+	return 0;
+}
+
 static int inteno_nl_parser(struct nl_msg *msg, void *arg)
 {
         struct nlmsghdr *nlh = nlmsg_hdr(msg);
         char *data;
         int ret;
-		char cmd[MAX_MSG];
+	char cmd[MAX_MSG];
 
         if (!genlmsg_valid_hdr(nlh, 0)){
                 printf("Got invalid message\n");
@@ -46,9 +155,11 @@ static int inteno_nl_parser(struct nl_msg *msg, void *arg)
         if (!ret){
 
                 if (attrs[INTENO_NL_MSG] ) {
-                        printf("got message string (%s)\n", nla_get_string(attrs[INTENO_NL_MSG]) );
-						snprintf(cmd, MAX_MSG, "ubus send %s\n", nla_get_string(attrs[INTENO_NL_MSG]));
-						system(cmd);
+			data = nla_get_string(attrs[INTENO_NL_MSG]);
+                        //printf("got message string (%s)\n", data);
+			snprintf(cmd, MAX_MSG, "ubus send %s\n", data);
+			system(cmd);
+			process_netlink_message(data);
                 }
         }
         return 0;

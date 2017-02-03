@@ -112,11 +112,10 @@ static int process_netlink_message(char *msg)
 			system("ubus call led.wps set '{\"state\":\"alert\"}'");
 		else if (strcmp(state, "success") == 0)
 			system("ubus call led.wps set '{\"state\":\"ok\"}'");
-/*	} else if (strcmp(event, "wifi.credentials") == 0) {*/
-/*		snprintf(cmd, MAX_MSG, "wifi import %s", data);*/
-/*		system(cmd);*/
-	}
-	else if (strcmp(event, "switch") == 0) {
+	} else if (strcmp(event, "wifi.credentials") == 0) {
+		snprintf(cmd, MAX_MSG, "wifi import %s", data);
+		system(cmd);
+	} else if (strcmp(event, "switch") == 0) {
 		remove_char(data, '\'');
 		json_parse_and_get(data, "port", port);
 		json_parse_and_get(data, "link", link);
